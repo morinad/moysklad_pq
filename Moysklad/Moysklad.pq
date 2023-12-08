@@ -48,7 +48,8 @@ FuncType = type function (
 
 Moysklad.Func =(what as text,  report as text, entity as nullable text,  start as nullable text) => 
     let
-        gettoken = Json.Document(Web.Contents("https://online.moysklad.ru/", [RelativePath = "api/remap/1.2/security/token", Headers = [#"Content-Type"="application/json", Authorization  = "Basic "&Extension.CurrentCredential()[Key]], Content = Text.ToBinary(""),  ManualStatusHandling = {404, 400}])),    
+        gettoken = Json.Document(Web.Contents("https://api.moysklad.ru/", [RelativePath = "api/remap/1.2/security/token", 
+        Headers = [#"Accept-Encoding" = "gzip", #"Content-Type"="application/json", Authorization  = "Basic "&Extension.CurrentCredential()[Key]], Content = Text.ToBinary(""),  ManualStatusHandling = {404, 400}])),    
         reportType = 
         if report = "Ассортимент" then "entity/assortment" else 
         if report = "Бонусные операции" then "entity/bonustransaction" else 
@@ -135,12 +136,16 @@ Moysklad.Func =(what as text,  report as text, entity as nullable text,  start a
 
         ent = if entity = null or entity = "null" or entity ="" then reportType else entity,
         getofflist=(rows,limit)=> List.Accumulate({Number.RoundDown(startOffset/limit)..Number.RoundDown(rows/limit-0.0000000001)}, {}, (state, current)=>state&{current*limit}),
-        size = Json.Document(Web.Contents("https://online.moysklad.ru/", [RelativePath = "api/remap/1.2/"&ent, Query = [#"limit"="1000", #"offset"="0"], Headers = [#"Content-Type"="application/json", Authorization  = "Bearer "&Extension.CurrentCredential()[Key]],  ManualStatusHandling = {404, 400}]))[meta][size],
+        size = Json.Document(Web.Contents("https://api.moysklad.ru/", [RelativePath = "api/remap/1.2/"&ent, 
+        Query = [#"limit"="1000", #"offset"="0"], 
+        Headers = [#"Accept-Encoding" = "gzip", #"Content-Type"="application/json", Authorization  = "Bearer "&Extension.CurrentCredential()[Key]],  ManualStatusHandling = {404, 400}]))[meta][size],
         offlist = getofflist(size, 1000),
         #"Преобразовано в таблицу" = Table.FromList(offlist, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
         #"Переименованные столбцы" = Table.RenameColumns(#"Преобразовано в таблицу",{{"Column1", "offset"}}),
         #"Измененный тип" = Table.TransformColumnTypes(#"Переименованные столбцы",{{"offset", type text}}),
-        stat = Table.AddColumn(#"Измененный тип", "data", (x)=>  Json.Document(Web.Contents("https://online.moysklad.ru/", [RelativePath = "api/remap/1.2/"&ent, Query = [#"limit"="1000", #"offset"=x[offset]], Headers = [#"Content-Type"="application/json", Authorization  = "Bearer "&Extension.CurrentCredential()[Key]],  ManualStatusHandling = {404, 400}]))[rows] ),
+        stat = Table.AddColumn(#"Измененный тип", "data", (x)=>  Json.Document(Web.Contents("https://api.moysklad.ru/", 
+        [RelativePath = "api/remap/1.2/"&ent, Query = [#"limit"="1000", #"offset"=x[offset]], 
+        Headers = [#"Accept-Encoding" = "gzip", #"Content-Type"="application/json", Authorization  = "Bearer "&Extension.CurrentCredential()[Key]],  ManualStatusHandling = {404, 400}]))[rows] ),
         
         final = if what = "Токен" then gettoken else if what = "Размер выгрузки" then size else  stat
     in
